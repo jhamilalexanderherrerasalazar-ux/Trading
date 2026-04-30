@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Trading Journal AI - Dashboard</title>
+    <title>TraderVision Pro | Análisis de IA</title>
     <!-- Bootstrap para diseño y Chart.js para gráficos -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -13,6 +13,7 @@
         .card-stats { background: #1e1e1e; border: none; border-radius: 15px; padding: 20px; margin-bottom: 20px; }
         .chart-container { position: relative; height: 300px; width: 100%; }
         .italic { font-style: italic; }
+        .progress { height: 10px; border-radius: 5px; }
     </style>
 </head>
 <body>
@@ -35,7 +36,7 @@
                 
                 <!-- Barra de progreso visual -->
                 <div class="progress mt-3 d-none" id="barraProgreso">
-                    <div class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" style="width: 100%"></div>
+                    <div class="progress-bar progress-bar-striped progress-bar-animated bg-primary" role="progressbar" style="width: 100%"></div>
                 </div>
             </div>
         </div>
@@ -45,7 +46,7 @@
         <!-- Tarjeta del Gráfico de Pastel -->
         <div class="col-md-6">
             <div class="card-stats shadow">
-                <h5 class="text-center">Win Rate (Efectividad)</h5>
+                <h5 class="text-center">Win Rate Real (Google Sheets)</h5>
                 <div class="chart-container">
                     <canvas id="graficoPastel"></canvas>
                 </div>
@@ -58,10 +59,10 @@
                 <h5 class="text-center text-info">🤖 Mentoría IA</h5>
                 <hr style="border-color: #444;">
                 <div id="consejoContenedor" class="py-3">
-                    <p id="textoIA" class="lead text-center italic">"Analizando tus últimos trades..."</p>
+                    <p id="textoIA" class="lead text-center italic">"Conectando con tu base de datos..."</p>
                 </div>
                 <div class="text-center mt-3">
-                    <span id="badgeEmocion" class="badge bg-primary">Estado: Disciplinado</span>
+                    <span id="badgeEmocion" class="badge bg-primary shadow-sm">Estado: Analizando Historial</span>
                 </div>
             </div>
         </div>
@@ -69,13 +70,64 @@
 </div>
 
 <script>
-    // Función para subir y analizar la imagen
+    // URL UNIFICADA DE TU SCRIPT
+    const scriptURL = "https://script.google.com/macros/s/AKfycbwx2mIwguQRAR1GR7TtpgZpRENobzfpjHdc7xbX8VIbqy2bTVxDgRtwweSsh18hrfT5/exec";
+    let miGrafico;
+
+    // 1. INICIALIZACIÓN
+    document.addEventListener('DOMContentLoaded', function() {
+        const ctx = document.getElementById('graficoPastel').getContext('2d');
+        
+        // Creamos el gráfico vacío
+        miGrafico = new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+                labels: ['Ganados (Profit)', 'Perdidos (Loss)'],
+                datasets: [{
+                    data: [0, 0], // Se llenará con datos reales
+                    backgroundColor: ['#2ecc71', '#e74c3c'],
+                    borderColor: '#1e1e1e',
+                    borderWidth: 5
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { position: 'bottom', labels: { color: '#e0e0e0' } }
+                }
+            }
+        });
+
+        // Intentar cargar datos reales inmediatamente
+        actualizarDesdeSheets();
+    });
+
+    // 2. FUNCIÓN PARA LEER DATOS REALES DE GOOGLE SHEETS
+    async function actualizarDesdeSheets() {
+        try {
+            // Llamada al script con parámetro de lectura
+            const respuesta = await fetch(scriptURL + "?action=leerStats");
+            const datos = await respuesta.json();
+            
+            if(datos) {
+                miGrafico.data.datasets[0].data = [datos.ganados, datos.perdidos];
+                miGrafico.update();
+                actualizarConsejo(datos.ganados, datos.perdidos);
+                document.getElementById('badgeEmocion').innerText = "Estado: Sincronizado";
+            }
+        } catch (error) {
+            console.log("Esperando primeros datos...");
+            // Si falla (porque la hoja está vacía), ponemos valores por defecto para que no se vea feo
+            actualizarConsejo(0, 0);
+        }
+    }
+
+    // 3. FUNCIÓN PARA SUBIR IMAGEN (OCR)
     async function subirYAnaizar() {
         const fileInput = document.getElementById('inputFoto');
         const btn = document.getElementById('btnAnalizar');
         const barra = document.getElementById('barraProgreso');
-        // Asegúrate de que esta URL sea la de tu implementación actual de Google Apps Script
-        const scriptURL = "https://script.google.com/macros/s/AKfycbxxc6xep2RfTq6-U7C4UNWNYVS3WzzzoN_m2akcN2fLeaPQVBVLjmiYMe4ua7vqAIF8/exec";
 
         if (fileInput.files.length === 0) {
             alert("Por favor, selecciona una captura de pantalla primero.");
@@ -86,7 +138,7 @@
         const reader = new FileReader();
 
         btn.disabled = true;
-        btn.innerText = "Subiendo imagen...";
+        btn.innerText = "Procesando con IA...";
         barra.classList.remove('d-none');
 
         reader.onload = function(e) {
@@ -103,66 +155,40 @@
                 body: JSON.stringify(payload)
             })
             .then(() => {
-                alert("✅ ¡Trade enviado! La IA lo procesará en breve.");
+                alert("✅ ¡Trade detectado y guardado! Recarga en un momento para ver los cambios.");
                 btn.disabled = false;
                 btn.innerText = "SUBIR Y ANALIZAR CON IA";
                 barra.classList.add('d-none');
                 fileInput.value = "";
+                // Refrescar stats después de subir
+                setTimeout(actualizarDesdeSheets, 3000); 
             })
             .catch(error => {
-                alert("❌ Error al subir: " + error);
+                alert("❌ Error: " + error);
                 btn.disabled = false;
                 barra.classList.add('d-none');
             });
         };
-
         reader.readAsDataURL(file);
     }
 
-    // Inicialización de Gráficos al cargar la página
-    document.addEventListener('DOMContentLoaded', function() {
-        const tradesGanados = 15;
-        const tradesPerdidos = 5;
-
-        const ctx = document.getElementById('graficoPastel').getContext('2d');
-        
-        new Chart(ctx, {
-            type: 'doughnut',
-            data: {
-                labels: ['Ganados (Profit)', 'Perdidos (Loss)'],
-                datasets: [{
-                    data: [tradesGanados, tradesPerdidos],
-                    backgroundColor: ['#2ecc71', '#e74c3c'],
-                    borderColor: '#1e1e1e',
-                    borderWidth: 5
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: {
-                        position: 'bottom',
-                        labels: { color: '#e0e0e0' }
-                    }
-                }
-            }
-        });
-
-        actualizarConsejo(tradesGanados, tradesPerdidos);
-    });
-
+    // 4. LÓGICA DE MENTORÍA
     function actualizarConsejo(g, p) {
         const total = g + p;
+        if (total === 0) {
+            document.getElementById('textoIA').innerText = '"Sube tu primer trade para que pueda analizar tu psicología y resultados."';
+            return;
+        }
+        
         const ratio = (g / total) * 100;
         let mensaje = "";
 
         if(ratio >= 70) {
             mensaje = "¡Excelente precisión! Estás operando con la mente fría. No subas el lotaje por euforia.";
         } else if (ratio >= 50) {
-            mensaje = "Buen trabajo, eres rentable. Revisa si tus pérdidas son por no respetar el Stop Loss.";
+            mensaje = "Buen trabajo, eres rentable. Revisa si tus pérdidas son por no respetar el plan.";
         } else {
-            mensaje = "Atención: Tu efectividad es baja. Detén el trading real y vuelve a demo hasta corregir el plan.";
+            mensaje = "Atención: Tu efectividad es baja. Detén el trading real y vuelve a demo hasta corregir errores.";
         }
 
         document.getElementById('textoIA').innerText = `"${mensaje}"`;
